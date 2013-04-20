@@ -54,4 +54,70 @@ class GlobalizeTest < MiniTest::Unit::TestCase
     end
   end
 
+  test "should find slug in any locale when slugs for more than one locale has been filled" do
+    transaction do
+      I18n.default_locale = :en
+      article_en = I18n.with_locale(:en) { TranslatedArticle.create(:title => 'a title') }
+      I18n.with_locale(:de) { article_en.title = 'titel'; article_en.save! }
+
+      assert_equal TranslatedArticle.find("a-title"), article_en
+
+      I18n.with_locale(:de) {
+        assert_equal TranslatedArticle.find("titel"), article_en
+      }
+    end
+  end
+
+  test "should find slug collisions when slugs for more than one locale has been filled" do
+    transaction do
+      I18n.default_locale = :en
+
+      first_article = TranslatedArticle.create(:title => 'a title')
+      second_article = TranslatedArticle.create(:title => 'a title')
+      I18n.with_locale(:de) { first_article.title = 'titel'; first_article.save! }
+      I18n.with_locale(:de) { second_article.title = 'titel'; second_article.save! }
+
+      assert_equal "a-title", first_article.slug
+      assert_equal "a-title--2", second_article.slug
+      I18n.with_locale(:de) {
+        assert_equal "titel", first_article.slug
+        assert_equal "titel--2", first_article.slug
+      }
+    end
+  end
+
+  test "should find slug collisions when slugs for more than one locale has been filled (2)" do
+    transaction do
+      I18n.default_locale = :en
+
+      first_article = TranslatedArticle.create(:title => 'a title')
+      I18n.with_locale(:de) { first_article.title = 'titel'; first_article.save! }
+      second_article = TranslatedArticle.create(:title => 'a title')
+      I18n.with_locale(:de) { second_article.title = 'titel'; second_article.save! }
+
+      assert_equal "a-title", first_article.slug
+      assert_equal "a-title--2", second_article.slug
+      I18n.with_locale(:de) {
+        assert_equal "titel", first_article.slug
+        assert_equal "titel--2", first_article.slug
+      }
+    end
+  end
+
+  test "should find the article in the active locale" do
+    transaction do
+      I18n.default_locale = :en
+
+      first_article = TranslatedArticle.create(:title => 'titel')
+      second_article = TranslatedArticle.create(:title => 'a title')
+      I18n.with_locale(:de) { second_article.title = 'titel'; second_article.save! }
+
+      assert_equal TranslatedArticle.find("titel"), first_article
+      I18n.with_locale(:de) {
+        assert_equal TranslatedArticle.find("titel"), second_article
+      }
+    end
+  end
+
+
 end
