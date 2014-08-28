@@ -72,6 +72,7 @@ current locale:
         unless respond_to?('translated_attribute_names') || translated_attribute_names.exclude?(friendly_id_config.query_field.to_sym)
           puts "\n[FriendlyId] You need to translate '#{friendly_id_config.query_field}' field with Globalize (add 'translates :#{friendly_id_config.query_field}' in your model '#{self.class.name}')\n\n"
         end
+        friendly_id_config.slug_generator_class.send :include, SlugGenerator
       end
     end
 
@@ -94,7 +95,9 @@ current locale:
       # @see FriendlyId::ObjectUtils
       def find_one(id)
         return super if id.unfriendly_id?
-        found = where(@klass.friendly_id_config.query_field => id).first
+        found = includes(:translations).
+                where(translation_class.arel_table[:locale].eq(I18n.locale)).
+                where(translation_class.arel_table[@klass.friendly_id_config.query_field].eq(id)).first
         found = includes(:translations).
                 where(translation_class.arel_table[:locale].in([I18n.locale, I18n.default_locale])).
                 where(translation_class.arel_table[@klass.friendly_id_config.query_field].eq(id)).first if found.nil?
@@ -110,6 +113,31 @@ current locale:
 
       protected :find_one
 
+    end
+
+    # This module overrides {FriendlyId::SlugGenerator#conflicts} to consider
+    # translated slugs
+    module SlugGenerator
+
+      private
+
+      def conflicts
+        sluggable_class = friendly_id_config.model_class.base_class
+        translation_class = sluggable_class.translation_class
+        pkey  = sluggable_class.primary_key
+        value = sluggable.send pkey
+        base = "\"#{translation_class.arel_table.name}\".#{column} = ? OR \"#{translation_class.arel_table.name}\".#{column} LIKE ?"
+        # Awful hack for SQLite3, which does not pick up '\' as the escape character without this.
+        base << "ESCAPE '\\'" if sluggable.connection.adapter_name =~ /sqlite/i
+        scope = sluggable_class.unscoped.includes(:translations).
+                where(translation_class.arel_table[:locale].eq(I18n.locale)).
+                where(base, normalized, wildcard)
+        scope = scope.where("\"#{sluggable_class.arel_table.name}\".#{pkey} <> ?", value) unless sluggable.new_record?
+
+        length_command = "LENGTH"
+        length_command = "LEN" if sluggable.connection.adapter_name =~ /sqlserver/i
+        scope = scope.order("#{length_command}(\"#{translation_class.arel_table.name}\".#{column}) DESC, \"#{translation_class.arel_table.name}\".#{column} DESC")
+      end
     end
   end
 end

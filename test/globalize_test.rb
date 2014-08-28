@@ -81,7 +81,7 @@ class GlobalizeTest < MiniTest::Unit::TestCase
       assert_equal "a-title--2", second_article.slug
       I18n.with_locale(:de) {
         assert_equal "titel", first_article.slug
-        assert_equal "titel--2", first_article.slug
+        assert_equal "titel--2", second_article.slug
       }
     end
   end
@@ -99,7 +99,7 @@ class GlobalizeTest < MiniTest::Unit::TestCase
       assert_equal "a-title--2", second_article.slug
       I18n.with_locale(:de) {
         assert_equal "titel", first_article.slug
-        assert_equal "titel--2", first_article.slug
+        assert_equal "titel--2", second_article.slug
       }
     end
   end
@@ -118,6 +118,4 @@ class GlobalizeTest < MiniTest::Unit::TestCase
       }
     end
   end
-
-
 end
